@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cờ Vua 4 Người | Chess4P</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+
+:root {
+  --bg: #0d0a08;
+  --surface: #1a1410;
+  --border: #3d2e1e;
+  --gold: #c9a84c;
+  --gold-light: #f0d080;
+  --red: #c0392b;
+  --blue: #2980b9;
+  --green: #27ae60;
+  --yellow: #d4ac0d;
+  --light-sq: #f0d9b5;
+  --dark-sq: #b58863;
+  --dead-sq: #1a1410;
+  --text: #e8d5b0;
+  --muted: #8a7560;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Crimson Text', serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, #2a1a0a 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+h1 {
+  font-family: 'Cinzel', serif;
+  font-size: clamp(1.4rem, 3vw, 2.2rem);
+  letter-spacing: 0.15em;
+  color: var(--gold-light);
+  text-align: center;
+  padding: 18px 20px 6px;
+  text-shadow: 0 0 30px rgba(201,168,76,0.4);
+  position: relative;
+  z-index: 1;
+}
+
+h1 span { color: var(--muted); font-size: 0.55em; display: block; letter-spacing: 0.3em; margin-top: 2px; }
+
+/* ── LOBBY ── */
+#lobby {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 30px 20px;
+  width: 100%;
+  max-width: 480px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 22px 26px;
+  width: 100%;
+}
+
+.card h2 {
+  font-family: 'Cinzel', serif;
+  color: var(--gold);
+  font-size: 1rem;
+  letter-spacing: 0.12em;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.btn {
+  font-family: 'Cinzel', serif;
+  letter-spacing: 0.1em;
+  font-size: 0.85rem;
+  padding: 10px 22px;
+  border: 1px solid var(--gold);
+  background: transparent;
+  color: var(--gold-light);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.2s;
+  width: 100%;
+  margin-top: 8px;
+}
+.btn:hover { background: rgba(201,168,76,0.12); }
+.btn.primary { background: var(--gold); color: #1a1008; border-color: var(--gold); font-weight: 700; }
+.btn.primary:hover { background: var(--gold-light); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+input[type=text] {
+  width: 100%;
+  background: #110d09;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  font-family: 'Crimson Text', serif;
+  font-size: 1.1rem;
+  padding: 9px 12px;
+  outline: none;
+  transition: border-color 0.2s;
+  margin-bottom: 6px;
+}
+input[type=text]:focus { border-color: var(--gold); }
+
+.room-id-display {
+  font-family: 'Cinzel', serif;
+  font-size: 1.6rem;
+  letter-spacing: 0.25em;
+  color: var(--gold-light);
+  text-align: center;
+  padding: 14px;
+  background: #110d09;
+  border: 1px solid var(--gold);
+  border-radius: 3px;
+  cursor: pointer;
+  margin: 8px 0;
+  user-select: all;
+}
+.room-id-display small { display: block; color: var(--muted); font-size: 0.5em; letter-spacing: 0.1em; margin-top: 4px; }
+
+.player-slots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.slot {
+  padding: 8px 12px;
+  border-radius: 3px;
+  border: 1px solid;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.slot .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.slot.red { border-color: #8b2020; color: #e07070; }
+.slot.red .dot { background: var(--red); }
+.slot.blue { border-color: #1a5280; color: #6aaee0; }
+.slot.blue .dot { background: var(--blue); }
+.slot.yellow { border-color: #7d6608; color: #e8c840; }
+.slot.yellow .dot { background: var(--yellow); }
+.slot.green { border-color: #1a6b3a; color: #60c880; }
+.slot.green .dot { background: var(--green); }
+.slot.empty { opacity: 0.35; }
+
+#status-msg {
+  color: var(--muted);
+  font-style: italic;
+  text-align: center;
+  font-size: 0.95rem;
+  min-height: 1.4em;
+}
+
+/* ── GAME ── */
+#game {
+  display: none;
+  position: relative;
+  z-index: 1;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 10px 10px 20px;
+  gap: 10px;
+}
+
+/* Top info bar */
+#info-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+  max-width: 660px;
+}
+
+.turn-badge {
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  padding: 6px 14px;
+  border-radius: 3px;
+  border: 1px solid;
+  flex: 1;
+  min-width: 120px;
+  text-align: center;
+  transition: all 0.3s;
+  opacity: 0.45;
+}
+.turn-badge.active { opacity: 1; transform: scale(1.04); }
+.turn-badge.eliminated { opacity: 0.2; text-decoration: line-through; }
+.turn-badge.red-t { border-color: var(--red); color: #e07070; background: rgba(192,57,43,0.08); }
+.turn-badge.blue-t { border-color: var(--blue); color: #6aaee0; background: rgba(41,128,185,0.08); }
+.turn-badge.yellow-t { border-color: var(--yellow); color: #e8c840; background: rgba(212,172,13,0.08); }
+.turn-badge.green-t { border-color: var(--green); color: #60c880; background: rgba(39,174,96,0.08); }
+.turn-badge.active.red-t { background: rgba(192,57,43,0.18); }
+.turn-badge.active.blue-t { background: rgba(41,128,185,0.18); }
+.turn-badge.active.yellow-t { background: rgba(212,172,13,0.18); }
+.turn-badge.active.green-t { background: rgba(39,174,96,0.18); }
+
+/* Board wrapper */
+#board-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+#board {
+  display: grid;
+  grid-template-columns: repeat(14, 1fr);
+  gap: 0;
+  border: 2px solid var(--border);
+  box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 0 1px rgba(201,168,76,0.1);
+}
+
+.cell {
+  width: clamp(32px, 5vw, 46px);
+  height: clamp(32px, 5vw, 46px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(18px, 2.8vw, 28px);
+  cursor: pointer;
+  position: relative;
+  transition: background 0.1s;
+  user-select: none;
+}
+
+.cell.light { background: var(--light-sq); }
+.cell.dark  { background: var(--dark-sq); }
+.cell.dead  { background: var(--dead-sq); cursor: default; }
+
+.cell.selected { background: rgba(255,255,100,0.55) !important; }
+.cell.move-hint::after {
+  content: '';
+  position: absolute;
+  width: 36%;
+  height: 36%;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.22);
+  pointer-events: none;
+}
+.cell.capture-hint::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 3px solid rgba(0,0,0,0.3);
+  border-radius: 2px;
+  pointer-events: none;
+}
+.cell.last-move { background: rgba(100,200,100,0.3) !important; }
+.cell.in-check { background: rgba(255,60,60,0.5) !important; }
+
+.piece {
+  position: relative;
+  z-index: 2;
+  line-height: 1;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+  transition: transform 0.1s;
+}
+.piece:hover { transform: scale(1.12); }
+
+/* Coordinate labels */
+.coord-file, .coord-rank {
+  position: absolute;
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  color: var(--muted);
+  pointer-events: none;
+}
+.coord-file { bottom: 1px; right: 2px; }
+.coord-rank { top: 1px; left: 2px; }
+
+/* Game log */
+#game-log {
+  width: 100%;
+  max-width: 660px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 10px 14px;
+  max-height: 110px;
+  overflow-y: auto;
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-style: italic;
+}
+#game-log p { margin: 1px 0; }
+#game-log p.red-log { color: #e07070; }
+#game-log p.blue-log { color: #6aaee0; }
+#game-log p.yellow-log { color: #e8c840; }
+#game-log p.green-log { color: #60c880; }
+
+/* Modal */
+#modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+#modal.show { display: flex; }
+#modal-box {
+  background: var(--surface);
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+  padding: 36px 40px;
+  text-align: center;
+  max-width: 340px;
+}
+#modal-box h2 { font-family: 'Cinzel', serif; color: var(--gold-light); font-size: 1.4rem; margin-bottom: 10px; }
+#modal-box p { color: var(--muted); margin-bottom: 20px; font-size: 1.05rem; }
+#modal-box .btn { max-width: 200px; margin: 0 auto; }
+
+/* Promotion picker */
+#promo-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+#promo-modal.show { display: flex; }
+#promo-box {
+  background: var(--surface);
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+  padding: 24px;
+  text-align: center;
+}
+#promo-box h3 { font-family: 'Cinzel', serif; color: var(--gold); margin-bottom: 16px; font-size: 1rem; letter-spacing: 0.1em; }
+#promo-choices { display: flex; gap: 10px; }
+.promo-btn {
+  width: 60px; height: 60px;
+  font-size: 36px;
+  background: #110d09;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.2s;
+}
+.promo-btn:hover { border-color: var(--gold); background: rgba(201,168,76,0.1); }
+
+#resign-btn {
+  font-family: 'Cinzel', serif;
+  letter-spacing: 0.1em;
+  font-size: 0.75rem;
+  padding: 7px 16px;
+  border: 1px solid #6b2020;
+  background: transparent;
+  color: #e07070;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.2s;
+}
+#resign-btn:hover { background: rgba(192,57,43,0.15); }
+
+@media (max-width: 500px) {
+  .cell { width: 24px; height: 24px; font-size: 14px; }
+  h1 { font-size: 1.1rem; }
+}
+</style>
+</head>
+<body>
+
+<h1>♔ CỜ VUA 4 NGƯỜI ♔<span>CHESS FOR FOUR PLAYERS</span></h1>
+
+<!-- LOBBY -->
+<div id="lobby">
+  <div class="card">
+    <h2>🏰 TẠO PHÒNG MỚI</h2>
+    <p style="color:var(--muted);font-size:0.9rem;margin-bottom:12px">Bạn sẽ là <strong style="color:#e07070">Đỏ</strong> — host phòng chơi</p>
+    <button class="btn primary" onclick="hostGame()">Tạo Phòng</button>
+    <div id="host-area" style="display:none">
+      <div class="room-id-display" id="room-display" onclick="copyRoomId()">
+        ···<small>click để sao chép mã phòng</small>
+      </div>
+      <div class="player-slots" id="player-slots">
+        <div class="slot red"><div class="dot"></div><span id="s0">Bạn (Đỏ)</span></div>
+        <div class="slot blue empty"><div class="dot"></div><span id="s1">Chờ...</span></div>
+        <div class="slot yellow empty"><div class="dot"></div><span id="s2">Chờ...</span></div>
+        <div class="slot green empty"><div class="dot"></div><span id="s3">Chờ...</span></div>
+      </div>
+      <button class="btn" id="start-btn" onclick="startGame()" disabled>Bắt Đầu (cần 2-4 người)</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🚪 THAM GIA PHÒNG</h2>
+    <input type="text" id="join-id" placeholder="Nhập mã phòng (6 ký tự)..." maxlength="6">
+    <button class="btn" onclick="joinGame()">Tham Gia</button>
+  </div>
+
+  <div id="status-msg">Kết nối PeerJS...</div>
+</div>
+
+<!-- GAME -->
+<div id="game">
+  <div id="info-bar">
+    <div class="turn-badge red-t" id="badge-0">♔ ĐỎ</div>
+    <div class="turn-badge blue-t" id="badge-1">♔ XANH</div>
+    <div class="turn-badge yellow-t" id="badge-2">♔ VÀNG</div>
+    <div class="turn-badge green-t" id="badge-3">♔ LÁ</div>
+    <button id="resign-btn" onclick="resign()">Đầu Hàng</button>
+  </div>
+  <div id="board-wrap">
+    <div id="board"></div>
+  </div>
+  <div id="game-log"><p>Ván đấu bắt đầu. Đỏ đi trước.</p></div>
+</div>
+
+<!-- Modals -->
+<div id="modal">
+  <div id="modal-box">
+    <h2 id="modal-title">Ván đấu kết thúc!</h2>
+    <p id="modal-msg"></p>
+    <button class="btn primary" onclick="location.reload()">Chơi Lại</button>
+  </div>
+</div>
+
+<div id="promo-modal">
+  <div id="promo-box">
+    <h3>PHONG CẤP QUÂN</h3>
+    <div id="promo-choices"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  CONSTANTS & STATE
+// ═══════════════════════════════════════════════
+const COLORS = ['red','blue','yellow','green'];
+const COLOR_NAMES = ['Đỏ','Xanh','Vàng','Lá'];
+const SIZE = 14;
+
+// Dead zones (corners 3x3)
+const DEAD = new Set();
+for(let r=0;r<3;r++) for(let c=0;c<3;c++) DEAD.add(r*14+c);
+for(let r=0;r<3;r++) for(let c=11;c<14;c++) DEAD.add(r*14+c);
+for(let r=11;r<14;r++) for(let c=0;c<3;c++) DEAD.add(r*14+c);
+for(let r=11;r<14;r++) for(let c=11;c<14;c++) DEAD.add(r*14+c);
+
+// Piece types: K,Q,R,B,N,P
+// Players: 0=Red(bottom), 1=Blue(left), 2=Yellow(top), 3=Green(right)
+// Directions for pawns: Red up(-row), Blue right(+col), Yellow down(+row), Green left(-col)
+
+const PIECE_UNICODE = {
+  'WK':'♔','WQ':'♕','WR':'♖','WB':'♗','WN':'♘','WP':'♙',
+  'BK':'♚','BQ':'♛','BR':'♜','BB':'♝','BN':'♞','BP':'♟'
+};
+
+// Color style mapping for pieces
+const PIECE_COLORS = {
+  0: { light: '#d04040', dark: '#8b1a1a', shadow: 'rgba(200,60,60,0.6)' },  // Red
+  1: { light: '#4090d0', dark: '#1a3a8b', shadow: 'rgba(60,120,200,0.6)' }, // Blue
+  2: { light: '#d0c040', dark: '#7a6e10', shadow: 'rgba(200,185,60,0.6)' }, // Yellow
+  3: { light: '#40c060', dark: '#1a6b30', shadow: 'rgba(60,180,80,0.6)' },  // Green
+};
+
+let state = {
+  board: null,      // 14x14 array of {type,player} or null
+  turn: 0,          // 0-3
+  selected: null,   // {r,c}
+  legalMoves: [],   // [{r,c,flags}]
+  eliminated: [false,false,false,false],
+  lastMove: null,   // {from,to}
+  kings: [{r:13,c:7},{r:7,c:0},{r:0,c:6},{r:6,c:13}], // king positions per player
+  inCheck: [false,false,false,false],
+  halfmove: 0,
+  gameOver: false,
+  myIndex: -1,      // which player am I
+  promoCallback: null,
+};
+
+// Network
+let peer = null;
+let connections = []; // host: conns to all; client: conn to host
+let isHost = false;
+let myIndex = -1;
+let roomId = '';
+let playerCount = 0;
+let connectedPlayers = [false,false,false,false]; // host perspective
+
+// ═══════════════════════════════════════════════
+//  PEER SETUP
+// ═══════════════════════════════════════════════
+function initPeer(id=null) {
+  const cfg = { debug: 0 };
+  peer = id ? new Peer(id, cfg) : new Peer(cfg);
+  peer.on('open', pid => {
+    roomId = pid.toUpperCase().slice(-6);
+    setStatus('Sẵn sàng. ID: ' + roomId);
+  });
+  peer.on('error', e => setStatus('Lỗi: ' + e.message));
+}
+
+function hostGame() {
+  initPeer();
+  isHost = true;
+  myIndex = 0;
+  peer.on('open', () => {
+    document.getElementById('host-area').style.display = 'block';
+    document.getElementById('room-display').childNodes[0].textContent = roomId;
+  });
+  peer.on('connection', conn => {
+    if(playerCount >= 3) { conn.close(); return; }
+    const idx = playerCount + 1;
+    playerCount++;
+    connections[idx] = conn;
+    connectedPlayers[idx] = true;
+
+    conn.on('open', () => {
+      // Tell this client their index
+      conn.send({type:'assign', idx, players: connectedPlayers.slice()});
+      // Tell everyone new player joined
+      broadcast({type:'joined', idx});
+      updateSlots();
+      if(playerCount >= 1) document.getElementById('start-btn').disabled = false;
+    });
+    conn.on('data', d => handleNetData(d, idx));
+    conn.on('close', () => {
+      connectedPlayers[idx] = false;
+      broadcast({type:'disconnected', idx});
+    });
+  });
+}
+
+function joinGame() {
+  const code = document.getElementById('join-id').value.trim().toUpperCase();
+  if(!code) { setStatus('Nhập mã phòng!'); return; }
+  if(!peer) initPeer();
+
+  peer.on('open', () => {
+    // Resolve full peer ID from last 6 chars
+    // We store full peer id = peer default random id, last 6 uppercase = room code
+    // So host's full id has roomId as last 6 chars
+    // We need to find host peer id — simplest: host sets peer id directly as roomId
+    // Let's restructure: host uses 6-char random as peer id
+    const hostPeerId = code;
+    const conn = peer.connect(hostPeerId, {reliable:true});
+    connections[0] = conn;
+    conn.on('open', () => setStatus('Đã kết nối phòng ' + code + '. Chờ host...'));
+    conn.on('data', d => handleNetData(d, 0));
+    conn.on('close', () => setStatus('Mất kết nối!'));
+  });
+}
+
+// Fix: host uses 6-char custom ID
+function hostGame() {
+  isHost = true;
+  myIndex = 0;
+  connectedPlayers[0] = true;
+  playerCount = 1;
+  // generate 6-char alphanumeric
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let rid = '';
+  for(let i=0;i<6;i++) rid += chars[Math.floor(Math.random()*chars.length)];
+  roomId = rid;
+
+  peer = new Peer(rid, {debug:0});
+  peer.on('open', () => {
+    document.getElementById('host-area').style.display = 'block';
+    document.getElementById('room-display').childNodes[0].textContent = roomId;
+    setStatus('Phòng ' + roomId + ' đã tạo. Chờ người chơi...');
+    updateSlots();
+  });
+  peer.on('connection', conn => {
+    if(playerCount >= 4) { conn.close(); return; }
+    const idx = playerCount;
+    playerCount++;
+    connections[idx] = conn;
+    connectedPlayers[idx] = true;
+
+    conn.on('open', () => {
+      conn.send({type:'assign', idx, connected: connectedPlayers.slice()});
+      broadcast({type:'joined', idx, connected: connectedPlayers.slice()}, idx);
+      updateSlots();
+      if(playerCount >= 2) document.getElementById('start-btn').disabled = false;
+    });
+    conn.on('data', d => handleNetData(d, idx));
+    conn.on('close', () => {
+      connectedPlayers[idx] = false;
+      broadcast({type:'disconnected', idx});
+    });
+  });
+  peer.on('error', e => setStatus('Lỗi: ' + e.message));
+}
+
+function joinGame() {
+  const code = document.getElementById('join-id').value.trim().toUpperCase();
+  if(code.length !== 6) { setStatus('Mã phòng phải 6 ký tự!'); return; }
+  peer = new Peer({debug:0});
+  peer.on('open', () => {
+    setStatus('Đang kết nối...');
+    const conn = peer.connect(code, {reliable:true});
+    connections[0] = conn;
+    conn.on('open', () => setStatus('Đã vào phòng ' + code + '. Chờ host bắt đầu...'));
+    conn.on('data', d => handleNetData(d, 0));
+    conn.on('close', () => setStatus('Mất kết nối với host!'));
+  });
+  peer.on('error', e => {
+    setStatus('Không tìm thấy phòng: ' + code);
+  });
+}
+
+function handleNetData(data, from) {
+  if(!data || !data.type) return;
+  switch(data.type) {
+    case 'assign':
+      myIndex = data.idx;
+      state.myIndex = myIndex;
+      connectedPlayers = data.connected || connectedPlayers;
+      setStatus('Bạn là ' + COLOR_NAMES[myIndex] + '. Chờ host...');
+      // Clients show waiting UI
+      if(!isHost) {
+        document.getElementById('lobby').style.display='flex';
+        // show joined message
+      }
+      break;
+    case 'joined':
+      connectedPlayers = data.connected || connectedPlayers;
+      if(!isHost) updateSlotsClient(data.connected);
+      break;
+    case 'disconnected':
+      setStatus(COLOR_NAMES[data.idx] + ' đã rời phòng');
+      break;
+    case 'start':
+      state.myIndex = myIndex;
+      state.eliminated = data.playerCount < 4
+        ? [false, false, false, ...Array.from({length:4-data.playerCount},()=>true)].slice(0,4)
+        : [false,false,false,false];
+      // Handle 2/3 player: eliminate unused slots
+      if(data.active) {
+        for(let i=0;i<4;i++) state.eliminated[i] = !data.active.includes(i);
+      }
+      initBoard(data.active || [0,1,2,3]);
+      showGame();
+      break;
+    case 'move':
+      if(data.from !== myIndex) {
+        applyMove(data.move, data.promo);
+      }
+      break;
+    case 'resign':
+      eliminatePlayer(data.player, 'đầu hàng');
+      break;
+  }
+}
+
+function broadcast(data, exceptIdx=null) {
+  connections.forEach((c,i) => {
+    if(c && i !== exceptIdx && c.open) c.send(data);
+  });
+}
+
+function sendToHost(data) {
+  if(connections[0] && connections[0].open) connections[0].send(data);
+}
+
+function startGame() {
+  if(!isHost) return;
+  const active = connectedPlayers.map((c,i)=>c?i:-1).filter(i=>i>=0);
+  // Eliminate disconnected players
+  for(let i=0;i<4;i++) if(!connectedPlayers[i]) state.eliminated[i]=true;
+  broadcast({type:'start', active, playerCount});
+  // Self start
+  initBoard(active);
+  showGame();
+}
+
+function copyRoomId() {
+  navigator.clipboard.writeText(roomId).then(() => setStatus('Đã sao chép: ' + roomId));
+}
+
+function setStatus(msg) {
+  document.getElementById('status-msg').textContent = msg;
+}
+
+function updateSlots() {
+  const names = ['Đỏ (Host)','Xanh','Vàng','Lá'];
+  const slots = document.querySelectorAll('.slot');
+  slots.forEach((s,i) => {
+    const sp = document.getElementById('s'+i);
+    if(connectedPlayers[i]) {
+      s.classList.remove('empty');
+      sp.textContent = names[i];
+    } else {
+      s.classList.add('empty');
+      sp.textContent = 'Chờ...';
+    }
+  });
+}
+
+function updateSlotsClient(connected) {
+  // Clients don't have slot UI by default, just status
+  if(!connected) return;
+  const active = connected.filter(Boolean).length;
+  setStatus('Trong phòng: ' + active + '/4 người chơi');
+}
+
+// ═══════════════════════════════════════════════
+//  BOARD INIT
+// ═══════════════════════════════════════════════
+function initBoard(activePlayers) {
+  const b = Array.from({length:14}, ()=>Array(14).fill(null));
+
+  // Red (player 0) — bottom rows, columns 3-10
+  if(activePlayers.includes(0)) {
+    const row1 = 13, row2 = 12;
+    const pieces = ['R','N','B','Q','K','B','N','R'];
+    for(let c=0;c<8;c++) b[row1][c+3] = {type:pieces[c],p:0};
+    for(let c=0;c<8;c++) b[row2][c+3] = {type:'P',p:0};
+    state.kings[0] = {r:13,c:7};
+  }
+
+  // Blue (player 1) — left columns, rows 3-10
+  if(activePlayers.includes(1)) {
+    const col1 = 0, col2 = 1;
+    const pieces = ['R','N','B','K','Q','B','N','R'];
+    for(let r=0;r<8;r++) b[r+3][col1] = {type:pieces[r],p:1};
+    for(let r=0;r<8;r++) b[r+3][col2] = {type:'P',p:1};
+    state.kings[1] = {r:6,c:0};
+  }
+
+  // Yellow (player 2) — top rows, columns 3-10
+  if(activePlayers.includes(2)) {
+    const row1 = 0, row2 = 1;
+    const pieces = ['R','N','B','K','Q','B','N','R'];
+    for(let c=0;c<8;c++) b[row1][c+3] = {type:pieces[c],p:2};
+    for(let c=0;c<8;c++) b[row2][c+3] = {type:'P',p:2};
+    state.kings[2] = {r:0,c:6};
+  }
+
+  // Green (player 3) — right columns, rows 3-10
+  if(activePlayers.includes(3)) {
+    const col1 = 13, col2 = 12;
+    const pieces = ['R','N','B','Q','K','B','N','R'];
+    for(let r=0;r<8;r++) b[r+3][col1] = {type:pieces[r],p:3};
+    for(let r=0;r<8;r++) b[r+3][col2] = {type:'P',p:3};
+    state.kings[3] = {r:6,c:13};
+  }
+
+  state.board = b;
+  state.turn = activePlayers[0]; // first active player
+  state.selected = null;
+  state.legalMoves = [];
+  state.lastMove = null;
+  state.gameOver = false;
+  renderBoard();
+  updateTurnBadges();
+}
+
+function showGame() {
+  document.getElementById('lobby').style.display = 'none';
+  document.getElementById('game').style.display = 'flex';
+}
+
+// ═══════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════
+function renderBoard() {
+  const boardEl = document.getElementById('board');
+  boardEl.innerHTML = '';
+
+  const moveSet = new Set(state.legalMoves.map(m => m.r*14+m.c));
+  const captureSet = new Set(state.legalMoves.filter(m=>m.capture).map(m=>m.r*14+m.c));
+
+  for(let r=0;r<14;r++) {
+    for(let c=0;c<14;c++) {
+      const cell = document.createElement('div');
+      const idx = r*14+c;
+
+      if(DEAD.has(idx)) {
+        cell.className = 'cell dead';
+      } else {
+        const isLight = (r+c)%2===0;
+        cell.className = 'cell ' + (isLight?'light':'dark');
+
+        // Last move highlight
+        if(state.lastMove) {
+          const {from,to} = state.lastMove;
+          if((from.r===r&&from.c===c)||(to.r===r&&to.c===c)) cell.classList.add('last-move');
+        }
+
+        // Selected
+        if(state.selected && state.selected.r===r && state.selected.c===c) {
+          cell.classList.add('selected');
+        }
+
+        // Move hints
+        if(moveSet.has(idx)) {
+          cell.classList.add(captureSet.has(idx) ? 'capture-hint' : 'move-hint');
+        }
+
+        // In check king
+        for(let p=0;p<4;p++) {
+          if(state.inCheck[p] && state.kings[p] && state.kings[p].r===r && state.kings[p].c===c) {
+            cell.classList.add('in-check');
+          }
+        }
+
+        // Piece
+        const piece = state.board[r][c];
+        if(piece) {
+          const span = document.createElement('span');
+          span.className = 'piece';
+          // Use unicode with color via text-shadow
+          const isKing = piece.type==='K';
+          const isQueen = piece.type==='Q';
+          const isWhiteSet = piece.p===0||piece.p===2; // red&yellow use "white" pieces, blue&green "black"
+          let uni;
+          const typeMap = {K:'K',Q:'Q',R:'R',B:'B',N:'N',P:'P'};
+          // Assign unicode based on type (all same unicode, colored via CSS)
+          const wMap = {K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘',P:'♙'};
+          const bMap = {K:'♚',Q:'♛',R:'♜',B:'♝',N:'♞',P:'♟'};
+          uni = (piece.p===0||piece.p===2) ? wMap[piece.type] : bMap[piece.type];
+          
+          const pc = PIECE_COLORS[piece.p];
+          span.textContent = uni;
+          span.style.cssText = `color:${pc.light};text-shadow:0 1px 3px ${pc.shadow},0 0 0 1px ${pc.dark};filter:drop-shadow(0 2px 2px rgba(0,0,0,0.5))`;
+          cell.appendChild(span);
+        }
+
+        cell.dataset.r = r;
+        cell.dataset.c = c;
+        cell.addEventListener('click', onCellClick);
+      }
+      boardEl.appendChild(cell);
+    }
+  }
+}
+
+function updateTurnBadges() {
+  COLORS.forEach((col,i) => {
+    const badge = document.getElementById('badge-'+i);
+    badge.className = 'turn-badge '+col+'-t';
+    if(state.eliminated[i]) badge.classList.add('eliminated');
+    else if(i===state.turn) badge.classList.add('active');
+    if(state.inCheck[i] && !state.eliminated[i]) badge.textContent = ['♔ ĐỎ','♔ XANH','♔ VÀNG','♔ LÁ'][i] + ' ⚠';
+    else badge.textContent = ['♔ ĐỎ','♔ XANH','♔ VÀNG','♔ LÁ'][i];
+  });
+}
+
+function addLog(msg, colorClass) {
+  const log = document.getElementById('game-log');
+  const p = document.createElement('p');
+  if(colorClass) p.className = colorClass+'-log';
+  p.textContent = msg;
+  log.appendChild(p);
+  log.scrollTop = log.scrollHeight;
+}
+
+// ═══════════════════════════════════════════════
+//  INTERACTION
+// ═══════════════════════════════════════════════
+function onCellClick(e) {
+  if(state.gameOver) return;
+  if(state.myIndex !== state.turn) return; // not our turn
+
+  const r = parseInt(this.dataset.r);
+  const c = parseInt(this.dataset.c);
+
+  if(state.selected) {
+    const move = state.legalMoves.find(m => m.r===r && m.c===c);
+    if(move) {
+      doMove({from:state.selected, to:{r,c}}, move.promo);
+      return;
+    }
+    // Reselect own piece?
+    if(state.board[r][c] && state.board[r][c].p === state.turn) {
+      selectPiece(r,c);
+      return;
+    }
+    // Deselect
+    state.selected = null;
+    state.legalMoves = [];
+    renderBoard();
+    return;
+  }
+
+  const piece = state.board[r][c];
+  if(piece && piece.p === state.turn) {
+    selectPiece(r,c);
+  }
+}
+
+function selectPiece(r,c) {
+  state.selected = {r,c};
+  state.legalMoves = getLegalMoves(r,c);
+  renderBoard();
+}
+
+function doMove(move, promo=null) {
+  const piece = state.board[move.from.r][move.from.c];
+  if(!piece) return;
+
+  // Check pawn promotion
+  if(piece.type==='P' && isPromotionSquare(move.to.r, move.to.c, piece.p)) {
+    if(!promo) {
+      showPromoModal(piece.p, (chosen) => {
+        doMove(move, chosen);
+      });
+      return;
+    }
+  }
+
+  applyMove(move, promo);
+
+  // Broadcast
+  const data = {type:'move', from:myIndex, move, promo};
+  if(isHost) broadcast(data);
+  else sendToHost(data);
+}
+
+function applyMove(move, promo=null) {
+  const b = state.board;
+  const piece = b[move.from.r][move.from.c];
+  if(!piece) return;
+
+  const captured = b[move.to.r][move.to.c];
+
+  // Move
+  b[move.to.r][move.to.c] = promo ? {type:promo, p:piece.p} : piece;
+  b[move.from.r][move.from.c] = null;
+
+  // Track king
+  if(piece.type==='K') {
+    state.kings[piece.p] = {r:move.to.r, c:move.to.c};
+  }
+
+  state.lastMove = {from:move.from, to:move.to};
+  state.selected = null;
+  state.legalMoves = [];
+
+  // Log
+  const files = 'abcdefghijklmn';
+  const fromStr = files[move.from.c]+(14-move.from.r);
+  const toStr = files[move.to.c]+(14-move.to.r);
+  const colorClass = COLORS[piece.p];
+  addLog(`${COLOR_NAMES[piece.p]}: ${piece.type}${fromStr}→${toStr}${captured?' x':''}${promo?' ='+promo:''}`, colorClass);
+
+  // Check if any king captured
+  for(let p=0;p<4;p++) {
+    if(!state.eliminated[p] && captured && captured.type==='K' && captured.p===p) {
+      eliminatePlayer(p, 'bị chiếu hết');
+    }
+  }
+
+  // Advance turn
+  advanceTurn();
+
+  // Update checks
+  updateChecks();
+  renderBoard();
+  updateTurnBadges();
+  checkGameOver();
+}
+
+function advanceTurn() {
+  let next = (state.turn+1)%4;
+  let tries = 0;
+  while(state.eliminated[next] && tries<4) { next=(next+1)%4; tries++; }
+  state.turn = next;
+}
+
+function updateChecks() {
+  for(let p=0;p<4;p++) {
+    if(!state.eliminated[p] && state.kings[p]) {
+      state.inCheck[p] = isSquareAttacked(state.kings[p].r, state.kings[p].c, p);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  CHESS LOGIC
+// ═══════════════════════════════════════════════
+function inBounds(r,c) { return r>=0&&r<14&&c>=0&&c<14&&!DEAD.has(r*14+c); }
+
+function isEnemy(r,c,player) {
+  const pc = state.board[r][c];
+  return pc && pc.p!==player && !state.eliminated[pc.p];
+}
+
+function isEmpty(r,c) { return inBounds(r,c) && !state.board[r][c]; }
+
+function getLegalMoves(r,c) {
+  const piece = state.board[r][c];
+  if(!piece) return [];
+  const pseudo = getPseudoMoves(r,c,piece);
+  // Filter moves that leave own king in check
+  return pseudo.filter(m => !moveLeavesCheck(r,c,m.r,m.c,piece.p));
+}
+
+function getPseudoMoves(r,c,piece) {
+  const moves = [];
+  const p = piece.p;
+
+  const add = (tr,tc,capture=false) => {
+    if(!inBounds(tr,tc)) return false;
+    const target = state.board[tr][tc];
+    if(target) {
+      if(target.p!==p && !state.eliminated[target.p]) {
+        moves.push({r:tr,c:tc,capture:true});
+      }
+      return false; // blocked
+    }
+    moves.push({r:tr,c:tc,capture:false});
+    return true;
+  };
+
+  const slide = (dr,dc) => {
+    let tr=r+dr, tc=c+dc;
+    while(inBounds(tr,tc)) {
+      const target = state.board[tr][tc];
+      if(target) {
+        if(target.p!==p && !state.eliminated[target.p]) moves.push({r:tr,c:tc,capture:true});
+        break;
+      }
+      moves.push({r:tr,c:tc,capture:false});
+      tr+=dr; tc+=dc;
+    }
+  };
+
+  switch(piece.type) {
+    case 'P': {
+      // Direction: Red=up(-1,0), Blue=right(0,+1), Yellow=down(+1,0), Green=left(0,-1)
+      const dirs = [[-1,0],[0,1],[1,0],[0,-1]];
+      const [dr,dc] = dirs[p];
+      // Forward
+      let tr=r+dr, tc=c+dc;
+      if(inBounds(tr,tc) && !state.board[tr][tc]) {
+        moves.push({r:tr,c:tc,capture:false});
+        // Double push from start row
+        const startRows = [12,3,1,10]; // Red:row12, Blue:col3->row col check, etc.
+        // Check if on starting row/col
+        const isStart = (p===0&&r===12)||(p===1&&c===3)||(p===2&&r===1)||(p===3&&c===10);
+        if(isStart) {
+          let tr2=tr+dr, tc2=tc+dc;
+          if(inBounds(tr2,tc2) && !state.board[tr2][tc2]) moves.push({r:tr2,c:tc2,capture:false});
+        }
+      }
+      // Captures diagonal
+      const capDirs = p===0||p===2 ? [[dr,-1],[dr,1]] : [[-1,dc],[1,dc]];
+      for(const [cr,cc] of capDirs) {
+        const tr2=r+cr, tc2=c+cc;
+        if(inBounds(tr2,tc2) && state.board[tr2][tc2] && state.board[tr2][tc2].p!==p && !state.eliminated[state.board[tr2][tc2].p])
+          moves.push({r:tr2,c:tc2,capture:true});
+      }
+      break;
+    }
+    case 'N': {
+      const jumps = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+      for(const [dr,dc] of jumps) add(r+dr,c+dc);
+      break;
+    }
+    case 'B':
+      for(const [dr,dc] of [[-1,-1],[-1,1],[1,-1],[1,1]]) slide(dr,dc);
+      break;
+    case 'R':
+      for(const [dr,dc] of [[-1,0],[1,0],[0,-1],[0,1]]) slide(dr,dc);
+      break;
+    case 'Q':
+      for(const [dr,dc] of [[-1,-1],[-1,1],[1,-1],[1,1],[-1,0],[1,0],[0,-1],[0,1]]) slide(dr,dc);
+      break;
+    case 'K': {
+      for(const [dr,dc] of [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]) add(r+dr,c+dc);
+      break;
+    }
+  }
+  return moves;
+}
+
+function moveLeavesCheck(fr,fc,tr,tc,player) {
+  // Simulate
+  const b = state.board;
+  const orig = b[tr][tc];
+  const piece = b[fr][fc];
+  b[tr][tc] = piece;
+  b[fr][fc] = null;
+
+  let kingR = state.kings[player].r, kingC = state.kings[player].c;
+  if(piece.type==='K') { kingR=tr; kingC=tc; }
+
+  const inChk = isSquareAttackedCustom(kingR, kingC, player, b);
+
+  b[fr][fc] = piece;
+  b[tr][tc] = orig;
+  return inChk;
+}
+
+function isSquareAttacked(r,c,player) {
+  return isSquareAttackedCustom(r,c,player,state.board);
+}
+
+function isSquareAttackedCustom(r,c,player,b) {
+  // Check if any enemy can attack (r,c)
+  for(let p=0;p<4;p++) {
+    if(p===player || state.eliminated[p]) continue;
+    for(let er=0;er<14;er++) {
+      for(let ec=0;ec<14;ec++) {
+        if(DEAD.has(er*14+ec)) continue;
+        const piece = b[er][ec];
+        if(!piece || piece.p!==p) continue;
+        if(canAttack(er,ec,r,c,piece,b)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function canAttack(fr,fc,tr,tc,piece,b) {
+  const p = piece.p;
+  const dr=tr-fr, dc=tc-fc;
+  switch(piece.type) {
+    case 'P': {
+      const dirs=[[-1,0],[0,1],[1,0],[0,-1]];
+      const [pd,pc2]=dirs[p];
+      const capDirs = p===0||p===2 ? [[pd,-1],[pd,1]] : [[-1,pc2],[1,pc2]];
+      return capDirs.some(([cr,cc])=>fr+cr===tr&&fc+cc===tc);
+    }
+    case 'N':
+      return (Math.abs(dr)===2&&Math.abs(dc)===1)||(Math.abs(dr)===1&&Math.abs(dc)===2);
+    case 'B':
+      if(Math.abs(dr)!==Math.abs(dc)) return false;
+      return !hasPieceBetweenDiag(fr,fc,tr,tc,b);
+    case 'R':
+      if(dr!==0&&dc!==0) return false;
+      return !hasPieceBetweenLine(fr,fc,tr,tc,b);
+    case 'Q':
+      if(Math.abs(dr)===Math.abs(dc)) return !hasPieceBetweenDiag(fr,fc,tr,tc,b);
+      if(dr===0||dc===0) return !hasPieceBetweenLine(fr,fc,tr,tc,b);
+      return false;
+    case 'K':
+      return Math.abs(dr)<=1&&Math.abs(dc)<=1;
+  }
+  return false;
+}
+
+function hasPieceBetweenLine(fr,fc,tr,tc,b) {
+  const dr=Math.sign(tr-fr), dc=Math.sign(tc-fc);
+  let r=fr+dr, c=fc+dc;
+  while(r!==tr||c!==tc) {
+    if(b[r][c]) return true;
+    r+=dr; c+=dc;
+  }
+  return false;
+}
+
+function hasPieceBetweenDiag(fr,fc,tr,tc,b) {
+  return hasPieceBetweenLine(fr,fc,tr,tc,b);
+}
+
+function isPromotionSquare(r,c,player) {
+  if(player===0) return r<=3;
+  if(player===1) return c>=10;
+  if(player===2) return r>=10;
+  if(player===3) return c<=3;
+}
+
+function showPromoModal(player, callback) {
+  state.promoCallback = callback;
+  const pc = PIECE_COLORS[player];
+  const choices = document.getElementById('promo-choices');
+  choices.innerHTML = '';
+  const types = ['Q','R','B','N'];
+  const icons = {Q:'♛',R:'♜',B:'♝',N:'♞'};
+  types.forEach(t => {
+    const btn = document.createElement('div');
+    btn.className = 'promo-btn';
+    btn.textContent = icons[t];
+    btn.style.color = pc.light;
+    btn.style.textShadow = `0 1px 3px ${pc.shadow}`;
+    btn.onclick = () => {
+      document.getElementById('promo-modal').classList.remove('show');
+      if(state.promoCallback) state.promoCallback(t);
+    };
+    choices.appendChild(btn);
+  });
+  document.getElementById('promo-modal').classList.add('show');
+}
+
+function eliminatePlayer(p, reason) {
+  if(state.eliminated[p]) return;
+  state.eliminated[p] = true;
+  // Remove all their pieces
+  for(let r=0;r<14;r++) for(let c=0;c<14;c++) {
+    if(state.board[r][c] && state.board[r][c].p===p) state.board[r][c]=null;
+  }
+  addLog(`${COLOR_NAMES[p]} đã ${reason}!`, COLORS[p]);
+  state.kings[p] = null;
+}
+
+function checkGameOver() {
+  const alive = [0,1,2,3].filter(p=>!state.eliminated[p]);
+  if(alive.length<=1) {
+    const winner = alive[0];
+    showModal(winner!=null ? `🏆 ${COLOR_NAMES[winner]} Chiến Thắng!` : 'Hòa!',
+      winner!=null ? `${COLOR_NAMES[winner]} là người cuối cùng còn lại!` : 'Tất cả đã bị loại.');
+    state.gameOver = true;
+  }
+}
+
+function showModal(title, msg) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-msg').textContent = msg;
+  document.getElementById('modal').classList.add('show');
+}
+
+function resign() {
+  if(state.gameOver || state.myIndex<0) return;
+  if(!confirm('Bạn chắc chắn muốn đầu hàng?')) return;
+  eliminatePlayer(state.myIndex, 'đầu hàng');
+  const data = {type:'resign', player:state.myIndex};
+  if(isHost) broadcast(data);
+  else sendToHost(data);
+  updateChecks();
+  renderBoard();
+  updateTurnBadges();
+  checkGameOver();
+}
+
+// ═══════════════════════════════════════════════
+//  SOLO / DEBUG — Quick start for testing
+// ═══════════════════════════════════════════════
+// Keyboard shortcut: press 'T' for solo test
+document.addEventListener('keydown', e => {
+  if(e.key==='t'||e.key==='T') {
+    myIndex = 0;
+    state.myIndex = 0;
+    state.eliminated = [false,false,false,false];
+    initBoard([0,1,2,3]);
+    showGame();
+    addLog('Chế độ thử nghiệm solo. Mọi bàn cờ đều có thể đi.', null);
+    // In test mode, let all players move
+    state.myIndex = -1; // -1 = spectator / all can move
+    document.getElementById('resign-btn').style.display='none';
+  }
+});
+
+// ═══════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════
+setStatus('Nhấn "Tạo Phòng" hoặc nhập mã để tham gia. Nhấn T để chơi thử.');
+
+// Override myIndex check for solo test
+const _myIdxCheck = () => state.myIndex === -1 ? true : state.myIndex === state.turn;
+Object.defineProperty(state, '_canMove', { get: _myIdxCheck });
+
+// Patch onCellClick to support solo mode
+document.addEventListener('click', ()=>{}, false);
+// Already handled above via state.myIndex === -1
+
+// Re-patch: allow moves when myIndex=-1 (solo test)
+function onCellClick(e) {
+  if(state.gameOver) return;
+  const canMove = state.myIndex === -1 ? true : state.myIndex === state.turn;
+  if(!canMove) return;
+
+  const r = parseInt(this.dataset.r);
+  const c = parseInt(this.dataset.c);
+
+  if(state.selected) {
+    const move = state.legalMoves.find(m => m.r===r && m.c===c);
+    if(move) {
+      doMove({from:state.selected, to:{r,c}}, null);
+      return;
+    }
+    if(state.board[r][c] && state.board[r][c].p === state.turn) {
+      selectPiece(r,c); return;
+    }
+    state.selected = null;
+    state.legalMoves = [];
+    renderBoard();
+    return;
+  }
+
+  const piece = state.board[r][c];
+  if(piece && piece.p === state.turn && !state.eliminated[piece.p]) {
+    selectPiece(r,c);
+  }
+}
+</script>
+</body>
+</html>
